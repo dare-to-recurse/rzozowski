@@ -129,6 +129,13 @@ Here are some resources that I found helpful in understanding Brzozowski derivat
 
 ## Contributing
 
+Cargo-fuzz targets exercise parsing, matching against the `regex` crate on shared
+syntax, derivatives, simplification, nullability, formatting, count ranges and
+character ranges. With a nightly toolchain active, run
+`cargo fuzz run <target> --jobs=<n>`, for example
+`cargo fuzz run differential --jobs=4`. Use `cargo fuzz list` to see all targets.
+See [the fuzzing guide](fuzz/README.md) for setup, coverage and dialect differences.
+
 Contributions are welcome! If you have any suggestions, bug reports, or feature requests, please open an issue or submit a pull request. Alternatively, you can email me at [feyles@icloud.com](mailto:feyles@icloud.com) if you'd like to chat.
 
 We use [monk](https://github.com/daynin/monk) for git hooks to ensure code quality. You must run `cargo fmt` and `cargo clippy -- -D warnings` before committing, and your code may not break any tests before being pushed. You can read the hooks in the `monk.yaml` file.

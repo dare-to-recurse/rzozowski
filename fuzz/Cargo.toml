@@ -1,0 +1,58 @@
+[package]
+name = "rzozowski-fuzz"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.80"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+# Keep native fuzzing dependencies out of the library's normal build.
+[workspace]
+members = ["."]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+regex = "1.11.1"
+rzozowski = { path = ".." }
+
+[profile.release]
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+test = false
+bench = false
+doc = false
+
+[[bin]]
+name = "differential"
+path = "fuzz_targets/differential.rs"
+test = false
+bench = false
+doc = false
+
+[[bin]]
+name = "algebra"
+path = "fuzz_targets/algebra.rs"
+test = false
+bench = false
+doc = false
+
+[[bin]]
+name = "display"
+path = "fuzz_targets/display.rs"
+test = false
+bench = false
+doc = false
+
+[[bin]]
+name = "ranges-counts"
+path = "fuzz_targets/ranges_counts.rs"
+test = false
+bench = false
+doc = false
