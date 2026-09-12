@@ -1,25 +1,37 @@
 # Cargo-fuzz targets
 
 The five targets exercise the public regex API with inputs mutated by libFuzzer.
-They use no checked-in seeds, smoke tests, or shared fuzz library.
+They use no checked-in seeds. A small shared generator turns arbitrary bytes into
+valid, bounded patterns and matching text, so mutations can reach nested groups,
+classes, escapes, Unicode, and quantifiers without first producing valid syntax.
 
 | Target | Checks |
 | --- | --- |
-| `parse` | Parses arbitrary UTF-8 patterns to find lexer and parser panics. |
-| `differential` | Compares whole-string matching with the `regex` crate for patterns in their shared syntax. |
-| `algebra` | Checks simplification, nullability, and the derivative law on parsed patterns. |
-| `display` | Formats successfully parsed patterns. |
-| `ranges-counts` | Checks count ranges and character ranges against scalar comparisons. |
+| `parse` | Parses raw UTF-8 and generated valid patterns, including native escapes. |
+| `differential` | Compares whole-string matching with the `regex` crate on both legacy inputs and generated patterns with known matches and near misses. |
+| `algebra` | Checks parsed patterns and compares directly constructed, unsimplified trees against an independent bounded language matcher. |
+| `display` | Formats parsed and directly constructed trees and checks parseable output against the original expression. |
+| `ranges-counts` | Checks exact, bounded, and lower-bound repetitions at count boundaries, plus character ranges at their endpoints. |
 
-`parse` consumes raw bytes when they are valid UTF-8. The other targets use
-`libfuzzer-sys` to decode mutated bytes into strings or scalar values. Invalid
-patterns are normal inputs and are skipped by targets that need a parsed regex.
-Pattern and text lengths are bounded to keep each iteration useful.
+`parse` still consumes raw bytes when they are valid UTF-8. `differential`,
+`algebra`, and `display` still decode raw bytes with the same `Arbitrary` string
+types used by their previous versions, preserving the meaning of existing
+corpus entries. They also feed the unmodified bytes to the generator. The
+`ranges-counts` input format is unchanged. Inputs and generated structures are
+bounded to keep each iteration useful.
 
-The `differential` target only compares patterns made from ASCII alphanumeric
-characters and `()|*+?`, where the two regex dialects agree. Its reference uses
-`\A(?:pattern)\z` to match the entire string. Patterns rejected by either parser
-are skipped.
+The legacy `differential` check still accepts only ASCII alphanumeric
+characters and `()|*+?`. Its generated path uses a larger shared subset,
+including character classes, escaped metacharacters, counted repetitions, and
+Unicode literals. It excludes `\d`, `\w`, and `\s`, whose definitions differ
+between the two crates. The reference uses `\A(?:pattern)\z` to match the
+entire string.
+
+The `algebra` target's reference matcher splits text at UTF-8 character
+boundaries and tracks reachable positions for repetition. Unlike checking a
+derivative against `Regex::matches`, this oracle does not call the code being
+tested. `display` only reparses output without `Empty` or `Epsilon` nodes,
+because those intentionally display as mathematical symbols.
 
 ## Running
 
@@ -58,4 +70,5 @@ To format and lint the fuzz package:
 ```sh
 cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path fuzz/Cargo.toml
 ```
