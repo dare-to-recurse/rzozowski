@@ -297,13 +297,6 @@ impl Regex {
             Self::Count(inner, count) => {
                 let inner_simplified = inner.simplify();
 
-                // ∅* = ε* = ε
-                if let Count::AtLeast(0) = count {
-                    if inner_simplified == Self::Empty {
-                        return Self::Epsilon;
-                    }
-                }
-
                 // (r*)* = r*
                 if let Count::AtLeast(0) = count {
                     if let Self::Count(_, Count::AtLeast(0)) = inner_simplified {
@@ -318,9 +311,12 @@ impl Regex {
                     }
                 }
 
-                // ∅{n,m} = ∅
+                // ∅ repeated zero times matches ε; positive repetitions match nothing.
                 if inner_simplified == Self::Empty {
-                    return Self::Empty;
+                    return match count {
+                        Count::Exact(0) | Count::Range(0, _) | Count::AtLeast(0) => Self::Epsilon,
+                        _ => Self::Empty,
+                    };
                 }
                 // ε{n,m} = ε
                 if inner_simplified == Self::Epsilon {
