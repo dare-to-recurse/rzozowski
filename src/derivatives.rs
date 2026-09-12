@@ -198,6 +198,7 @@ impl Regex {
                 }
                 Self::Empty
             }
+            Self::Count(_, Count::Exact(0) | Count::Range(_, 0)) => Self::Empty,
             Self::Count(inner, count) => {
                 let new_count = match count {
                     Count::Exact(n) => Count::Exact(n.saturating_sub(1)),
