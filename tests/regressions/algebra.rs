@@ -13,3 +13,20 @@ fn zero_repetitions_of_empty_still_match_empty() {
         );
     }
 }
+
+#[test]
+fn repeated_nullable_operand_still_matches_empty() {
+    // The original Count checks only tested whether the minimum was zero.
+    let optional_a = Regex::Or(Box::new(Regex::Epsilon), Box::new(Regex::Literal('a')));
+    for operand in [Regex::Epsilon, optional_a] {
+        for count in [Count::Exact(1), Count::Range(1, 3), Count::AtLeast(1)] {
+            let repeated = Regex::Count(Box::new(operand.clone()), count);
+            assert_eq!(
+                repeated.is_nullable(),
+                Regex::Epsilon,
+                "{operand:?}, {count:?}"
+            );
+            assert!(repeated.matches(""), "{operand:?}, {count:?}");
+        }
+    }
+}

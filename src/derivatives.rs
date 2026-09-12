@@ -153,9 +153,10 @@ impl Regex {
             Self::Concat(left, right) => left.is_nullable_() && right.is_nullable_(),
             Self::Or(left, right) => left.is_nullable_() || right.is_nullable_(),
             Self::Class(_) => false,
-            Self::Count(_, quantifier) => match quantifier {
-                Count::Exact(n) => *n == 0,
-                Count::Range(min, _) | Count::AtLeast(min) => *min == 0,
+            Self::Count(inner, quantifier) => match quantifier {
+                Count::Exact(n) => *n == 0 || inner.is_nullable_(),
+                Count::Range(min, max) => min <= max && (*min == 0 || inner.is_nullable_()),
+                Count::AtLeast(min) => *min == 0 || inner.is_nullable_(),
             },
         }
     }
