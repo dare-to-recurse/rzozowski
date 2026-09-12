@@ -260,7 +260,13 @@ where
         .repeated()
         .at_least(1)
         .collect::<Vec<_>>()
-        .map(|digits| digits.iter().collect::<String>().parse::<usize>().unwrap())
+        .try_map(|digits, span| {
+            digits
+                .iter()
+                .collect::<String>()
+                .parse::<usize>()
+                .map_err(|_| Rich::custom(span, "repetition count exceeds usize::MAX"))
+        })
 }
 
 /// Parses a `Count::Exact` (e.g., `{3}`).
@@ -396,6 +402,10 @@ pub fn parse_string_to_regex(input: &str) -> Result<Regex, String> {
             let mut error_message = String::new();
             for error in errors {
                 let span = error.span();
+                if let chumsky::error::RichReason::Custom(message) = error.reason() {
+                    let _ = writeln!(error_message, "Error at position {}: {message}", span.start);
+                    continue;
+                }
                 let found = error
                     .found()
                     .map(|t| t.to_string())
