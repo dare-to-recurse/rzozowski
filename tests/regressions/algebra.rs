@@ -30,3 +30,11 @@ fn repeated_nullable_operand_still_matches_empty() {
         }
     }
 }
+
+#[test]
+fn reversed_count_range_does_not_become_epsilon() {
+    // A range with min > max cannot choose any repetition count.
+    let repeated = Regex::Count(Box::new(Regex::Epsilon), Count::Range(1, 0));
+    assert_eq!(repeated.simplify(), Regex::Empty);
+    assert!(!repeated.matches(""));
+}

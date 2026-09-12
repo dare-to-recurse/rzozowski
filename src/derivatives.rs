@@ -296,6 +296,11 @@ impl Regex {
                 Self::Class(new_ranges)
             }
             Self::Count(inner, count) => {
+                // An inverted range admits no repetition count.
+                if matches!(count, Count::Range(min, max) if min > max) {
+                    return Self::Empty;
+                }
+
                 let inner_simplified = inner.simplify();
 
                 // (r*)* = r*
