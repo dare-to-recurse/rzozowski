@@ -1,5 +1,7 @@
 use rzozowski::{Count, Regex};
 
+use super::allocations::count_allocations;
+
 #[test]
 fn zero_repetitions_of_empty_still_match_empty() {
     // Reduced from 140 algebra artifacts to the zero-count simplification fault.
@@ -43,7 +45,14 @@ fn reversed_count_range_does_not_become_epsilon() {
 fn nested_lower_bounds_match_without_state_growth() {
     let regex = Regex::new("(((a){2,}){2,}){2,}").unwrap();
     assert!(!regex.matches(&"a".repeat(7)));
-    assert!(regex.matches(&"a".repeat(18)));
+    let text = "a".repeat(12);
+    let (matched, allocations) = count_allocations(|| regex.matches(&text));
+    assert!(matched);
+    // Leave headroom for implementation changes while rejecting derivative churn.
+    assert!(
+        allocations <= 1_000,
+        "matching made {allocations} allocations"
+    );
 }
 
 #[test]
@@ -58,5 +67,11 @@ fn zero_minimum_outer_count_preserves_the_gap() {
 #[test]
 fn nested_nullable_lower_bounds_collapse() {
     let regex = Regex::new("((a*){2,})*").unwrap();
-    assert!(regex.matches(&"a".repeat(12)));
+    let text = "a".repeat(8);
+    let (matched, allocations) = count_allocations(|| regex.matches(&text));
+    assert!(matched);
+    assert!(
+        allocations <= 1_000,
+        "matching made {allocations} allocations"
+    );
 }
