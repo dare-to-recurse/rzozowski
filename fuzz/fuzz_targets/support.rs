@@ -235,6 +235,7 @@ fn reference_matches_cached(regex: &Regex, text: &str, cache: &mut Cache) -> boo
             let mut reachable = vec![0];
             for repetitions in 0..=max {
                 if repetitions >= min && reachable.contains(&text.len()) {
+                    cache.insert(key, true);
                     return true;
                 }
                 if repetitions == max {
@@ -267,4 +268,21 @@ fn boundaries(text: &str) -> Vec<usize> {
         .map(|(position, _)| position)
         .chain(std::iter::once(text.len()))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn successful_repetitions_are_cached() {
+        for (count, text) in [(Count::Exact(0), ""), (Count::AtLeast(2), "aaa")] {
+            let regex = Regex::Count(Box::new(Regex::Literal('a')), count);
+            let mut cache = Cache::new();
+
+            assert!(reference_matches_cached(&regex, text, &mut cache));
+            let key = (&regex as *const Regex, text.as_ptr(), text.len());
+            assert_eq!(cache.get(&key), Some(&true));
+        }
+    }
 }
