@@ -38,3 +38,25 @@ fn reversed_count_range_does_not_become_epsilon() {
     assert_eq!(repeated.simplify(), Regex::Empty);
     assert!(!repeated.matches(""));
 }
+
+#[test]
+fn nested_lower_bounds_match_without_state_growth() {
+    let regex = Regex::new("(((a){2,}){2,}){2,}").unwrap();
+    assert!(!regex.matches(&"a".repeat(7)));
+    assert!(regex.matches(&"a".repeat(18)));
+}
+
+#[test]
+fn zero_minimum_outer_count_preserves_the_gap() {
+    let regex = Regex::new("((a){2,})*").unwrap();
+    assert!(regex.matches(""));
+    assert!(!regex.matches("a"));
+    assert!(regex.matches("aa"));
+    assert!(regex.matches("aaa"));
+}
+
+#[test]
+fn nested_nullable_lower_bounds_collapse() {
+    let regex = Regex::new("((a*){2,})*").unwrap();
+    assert!(regex.matches(&"a".repeat(12)));
+}

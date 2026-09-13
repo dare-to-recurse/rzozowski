@@ -133,6 +133,57 @@ impl Display for Regex {
 }
 
 impl Regex {
+    #[cold]
+    #[inline(never)]
+    fn compose_cloned_count(inner: Self, count: Count) -> Self {
+        match (inner, count) {
+            (Self::Count(base, Count::AtLeast(m)), Count::AtLeast(n)) => {
+                if let Some(total) = m.checked_mul(n) {
+                    // For n > 0, the minimum is m*n. With n = 0 and m > 1,
+                    // zero repetitions and at least m repetitions are allowed.
+                    if n > 0 || m <= 1 {
+                        return Self::Count(base, Count::AtLeast(total)).simplify();
+                    }
+                    return Self::Or(
+                        Box::new(Self::Epsilon),
+                        Box::new(Self::Count(base, Count::AtLeast(m))),
+                    )
+                    .simplify();
+                }
+                Self::Count(
+                    Box::new(Self::Count(base, Count::AtLeast(m))),
+                    Count::AtLeast(n),
+                )
+            }
+            (inner, count) => Self::Count(Box::new(inner), count),
+        }
+    }
+
+    fn clone_normalized_counts(&self) -> Self {
+        match self {
+            Self::Empty => Self::Empty,
+            Self::Epsilon => Self::Epsilon,
+            Self::Literal(c) => Self::Literal(*c),
+            Self::Class(ranges) => Self::Class(ranges.clone()),
+            Self::Concat(left, right) => Self::Concat(
+                Box::new(left.clone_normalized_counts()),
+                Box::new(right.clone_normalized_counts()),
+            ),
+            Self::Or(left, right) => Self::Or(
+                Box::new(left.clone_normalized_counts()),
+                Box::new(right.clone_normalized_counts()),
+            ),
+            Self::Count(inner, count) => {
+                let inner = inner.clone_normalized_counts();
+                if matches!(inner, Self::Count(..)) {
+                    Self::compose_cloned_count(inner, *count)
+                } else {
+                    Self::Count(Box::new(inner), *count)
+                }
+            }
+        }
+    }
+
     pub fn star(&self) -> Self {
         Self::Count(Box::new(self.clone()), Count::AtLeast(0))
     }
@@ -353,7 +404,7 @@ impl Regex {
 
     /// Returns `true` if the regex matches the given string, otherwise returns `false`.
     pub fn matches(&self, s: &str) -> bool {
-        let mut current = self.clone();
+        let mut current = self.clone_normalized_counts();
         for c in s.chars() {
             current = current.derivative(c);
         }
@@ -369,6 +420,41 @@ impl Regex {
 mod tests {
     #[allow(unused_imports)]
     use super::*;
+
+    #[test]
+    fn normalized_clone_composes_nested_lower_bounds() {
+        let a = Regex::Literal('a');
+        let repeated = Regex::Count(
+            Box::new(Regex::Count(
+                Box::new(Regex::Count(Box::new(a.clone()), Count::AtLeast(2))),
+                Count::AtLeast(2),
+            )),
+            Count::AtLeast(2),
+        );
+        let normalized = Regex::Count(Box::new(a), Count::AtLeast(8));
+        assert_eq!(repeated.clone_normalized_counts(), normalized);
+        assert_eq!(
+            Regex::Concat(Box::new(Regex::Literal('b')), Box::new(repeated))
+                .clone_normalized_counts(),
+            Regex::Concat(Box::new(Regex::Literal('b')), Box::new(normalized))
+        );
+    }
+
+    #[test]
+    fn normalized_clone_preserves_zero_outer_count_gap() {
+        let a = Regex::Literal('a');
+        let repeated = Regex::Count(
+            Box::new(Regex::Count(Box::new(a.clone()), Count::AtLeast(2))),
+            Count::AtLeast(0),
+        );
+        assert_eq!(
+            repeated.clone_normalized_counts(),
+            Regex::Or(
+                Box::new(Regex::Epsilon),
+                Box::new(Regex::Count(Box::new(a), Count::AtLeast(2))),
+            )
+        );
+    }
 
     // comprehensive derivative tests
     #[test]
